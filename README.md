@@ -1,4 +1,4 @@
-#Everything C# CLI Example
+# Everything C# CLI Example
 
 CLI example of integrating the search capabilities of VoidTools Everything in C#. The logic is in a single static class that is compatible with both .Net Framework and .Net Core. Search results are provided by a non-greed iterator and each result is in an idiomatic class.
 
