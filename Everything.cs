@@ -184,7 +184,7 @@ public static class Everything
         Everything_QueryW(true);
         var resultCount = Everything_GetNumResults();
         
-        // loop through the results, adding each result to the listbox.
+        // loop through the results, generating result objects
         for (uint i = 0; i < resultCount; i++)
         {            
             var sb = new StringBuilder(999);
@@ -199,5 +199,18 @@ public static class Everything
                 Path = sb.ToString()
             };
         }
+    }
+
+    public struct Result
+    {
+        public long Size; //in bytes
+        public DateTime DateModified;
+        public string Filename;
+        public string Path;
+
+        public bool Folder => Size < 0;
+
+        public override string ToString()
+            => $"Name: {Filename}\tSize (B): {(Folder ? "(Folder)" : Size)}\tModified: {DateModified:d}\tPath: {Path.Substring(0, 15)}...";
     }
 }
