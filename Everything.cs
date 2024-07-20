@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -119,7 +120,7 @@ public static class Everything
     [DllImport("Everything64.dll")]
     public static extern bool Everything_IsFileResult(UInt32 nIndex);
     [DllImport("Everything64.dll", CharSet = CharSet.Unicode)]
-    public static extern void Everything_GetResultFullPathName(UInt32 nIndex, StringBuilder lpString, UInt32 nMaxCount);
+    public static extern void Everything_GetResultFullPathName(UInt32 nIndex, [Out] char[] lpString, UInt32 nMaxCount);
     [DllImport("Everything64.dll")]
     public static extern void Everything_Reset();
     [DllImport("Everything64.dll", CharSet = CharSet.Unicode)]
@@ -169,12 +170,19 @@ public static class Everything
     [DllImport("Everything64.dll")]
     public static extern UInt32 Everything_IncRunCountFromFileName(string lpFileName);
 
-    #endregion
+	#endregion
 
-    public static IEnumerable<Result> Search(string qry) 
+
+	/// <summary>
+	/// <para>Search the host computer for matching files given a search string and an optional length.</para>
+	/// <para>Note that the host computer must already be running an instance of Everything.</para>
+	/// </summary>
+	/// <param name="query">The string to search for</param>
+	/// <returns>A lazy number of matches that will not be resolved until iteration.</returns>
+	public static IEnumerable<Result> Search(string query) 
     {
         // set the search
-        Everything_SetSearchW(qry);
+        Everything_SetSearchW(query);
         Everything_SetRequestFlags(EVERYTHING_REQUEST_FILE_NAME | EVERYTHING_REQUEST_PATH | EVERYTHING_REQUEST_DATE_MODIFIED | EVERYTHING_REQUEST_SIZE);
 
         // execute the query
@@ -183,18 +191,21 @@ public static class Everything
         
         // loop through the results, generating result objects
         for (uint i = 0; i < resultCount; i++)
-        {            
-            var sb = new StringBuilder(999);
-            Everything_GetResultFullPathName(i, sb, 999);
+        {
+			char[] buf = ArrayPool<char>.Shared.Rent(260); // 260 is the max Windows file path length, including the null terminator. 
+            Everything_GetResultFullPathName(i, buf, (uint)buf.Length);
             Everything_GetResultDateModified(i, out long date_modified);
-            Everything_GetResultSize(i, out long size);            
+            Everything_GetResultSize(i, out long size);
 
             yield return new Result() {
                 DateModified = DateTime.FromFileTime(date_modified),
                 Size = size,
                 Filename = Marshal.PtrToStringUni(Everything_GetResultFileName(i)),
-                Path = sb.ToString()
+                Path = new string(buf) //allocates a new string from the native array
             };
+
+            // release the borrowed array back to the pool
+            ArrayPool<char>.Shared.Return(buf);
         }
     }
 
